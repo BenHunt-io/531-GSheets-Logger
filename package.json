@@ -1,0 +1,16 @@
+{
+  "name": "531-gsheets",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "clasp:login": "clasp login --creds ~/.gsheets/creds.json; clasp login"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@types/google-apps-script": "^1.0.91"
+  }
+}
