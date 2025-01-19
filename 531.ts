@@ -8,6 +8,8 @@ export type WeekWeightConfig = {
       sets: {
         weight: number;
         targetReps: number;
+        notes?: string;
+        restMinutes: number;
       }[];
     }
   };
@@ -15,11 +17,11 @@ export type WeekWeightConfig = {
 
 const weekWeightConfig: WeekWeightConfig = {
   OneRepMaxSheetKey: {
-    "Barbell Bench Press": "K2",
-    "Overhead Press": "L2",
-    "Bulgarian Split Squat": "M2",
-    "Deadlift": "N2",
-    "Squat": "O2",
+    "Barbell Bench Press": "L3",
+    "Overhead Press": "M3",
+    "Bulgarian Split Squat": "N3",
+    "Deadlift": "O3",
+    "Squat": "P3",
   },
   // Week 1 (5s Week):
   // 65% TM × 5 reps
@@ -30,13 +32,17 @@ const weekWeightConfig: WeekWeightConfig = {
       sets: [{
         weight: 0.65,
         targetReps: 5,
+        restMinutes: 1,
     }, {
       weight: 0.75,
       targetReps: 5,
+      restMinutes: 1,
     }, {
       weight: 0.85,
       targetReps: 5,
-    }]
+      notes: "AMRAP",
+      restMinutes: 3,
+    }],
   },
   // Week 2 (3s Week):
   // 70% TM × 3 reps
@@ -46,12 +52,16 @@ const weekWeightConfig: WeekWeightConfig = {
     sets: [{
       weight: 0.70,
       targetReps: 3,
+      restMinutes: 1,
     }, {
       weight: 0.80,
       targetReps: 3,
+      restMinutes: 1,
     }, {
       weight: 0.90,
       targetReps: 3,
+      notes: "AMRAP",
+      restMinutes: 3,
     }]
   },
   // Week 3 (5/3/1 Week):
@@ -62,12 +72,16 @@ const weekWeightConfig: WeekWeightConfig = {
     sets: [{
       weight: 0.75,
       targetReps: 5,
+      restMinutes: 1,
     }, {
       weight: 0.85,
       targetReps: 3,
+      restMinutes: 1,
     }, {
       weight: 0.95,
       targetReps: 1,
+      notes: "AMRAP",
+      restMinutes: 3,
     }]
   },
   // Week 4 (Deload Week):
@@ -78,12 +92,15 @@ const weekWeightConfig: WeekWeightConfig = {
     sets: [{
       weight: 0.40,
       targetReps: 5,
+      restMinutes: 1,
     }, {
       weight: 0.50,
       targetReps: 5,
+      restMinutes: 1,
     }, {
         weight: 0.60,
         targetReps: 5,
+        restMinutes: 1,
       }]
     }
   }
@@ -91,7 +108,7 @@ const weekWeightConfig: WeekWeightConfig = {
 
 function createNewWorkout(){
    const sheet = SpreadsheetApp.getActiveSheet();
-   const liftName = sheet.getRange("K4").getValue();
+   const liftName = sheet.getRange("L2").getValue();
    const nextLiftWeek = getNextLiftWeek(sheet, liftName);
 
    for(let i = 0; i<3; i++){
@@ -106,10 +123,11 @@ function createNewWorkout(){
       liftName,
       // example: =FLOOR(K2*0.65, 5)
       `=FLOOR(${oneRepMax}*${percentOfOneRepMax}, 5)`,
-      1, // rest minutes
+      weekWeightConfig.week[nextLiftWeek].sets[i].restMinutes,
       weekWeightConfig.week[nextLiftWeek].sets[i].targetReps,
       0, // completed reps
-      false // completed
+      false, // completed
+      weekWeightConfig.week[nextLiftWeek].sets[i].notes,
     ]
 
     console.log(`workoutSet: ${JSON.stringify(workoutSet)}`);
@@ -183,10 +201,28 @@ interface OnEditEvent {
 
 function onEdit(e: GoogleAppsScript.Events.SheetsOnEdit) {
 
-  const sheet = SpreadsheetApp.getActiveSheet();
+  // L8
+  if(e.range.getColumn() === 12 && e.range.getRow() === 8){
+    createNewWorkout();
+  }
+
+  syncCompletedReps(e);
+}
+
+function syncCompletedReps(e: GoogleAppsScript.Events.SheetsOnEdit) {
+  const sheet = e.source.getActiveSheet();
 
   const expectedRepsIndex = getColumnIndex(sheet, "Expected Reps");
   const completedRepsIndex = getColumnIndex(sheet, "Completed Reps");
+  const completedColumn = getColumnIndex(sheet, "Completed")
+;
+  const expectedReps = sheet.getRange(e.range.getRow(), expectedRepsIndex).getValue();
+  const completedReps = sheet.getRange(e.range.getRow(), completedRepsIndex).getValue();
 
-  e.source.toast(`clicked on row ${e.range.getRow()} column ${e.range.getColumn()}`);
+  if(e.range.getColumn() === completedRepsIndex && completedReps >= expectedReps){
+    sheet.getRange(e.range.getRow(), completedColumn).setValue(true);
+  }
+  if(e.range.getColumn() === completedColumn && completedReps < expectedReps){
+    sheet.getRange(e.range.getRow(), completedRepsIndex).setValue(expectedReps);
+  }
 }
