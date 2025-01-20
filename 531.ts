@@ -106,15 +106,11 @@ const weekWeightConfig: WeekWeightConfig = {
   }
 }
 
-function createNewWorkout(){
-   const sheet = SpreadsheetApp.getActiveSheet();
-   const liftName = sheet.getRange("L2").getValue();
-   const nextLiftWeek = getNextLiftWeek(sheet, liftName);
+function createNew531WorkoutSets(){
+   
+  const{ nextLiftWeek, oneRepMax, liftName, sheet } = get531WorkoutConfig();
 
    for(let i = 0; i<3; i++){
-
-    const oneRepMaxSheetKey = weekWeightConfig.OneRepMaxSheetKey[liftName];
-    const oneRepMax = sheet.getRange(oneRepMaxSheetKey).getValue();
     const percentOfOneRepMax = weekWeightConfig.week[nextLiftWeek].sets[i].weight;
 
     const workoutSet = [
@@ -130,10 +126,51 @@ function createNewWorkout(){
       weekWeightConfig.week[nextLiftWeek].sets[i].notes,
     ]
 
-    console.log(`workoutSet: ${JSON.stringify(workoutSet)}`);
-
     sheet.appendRow(workoutSet);
    }
+}
+
+function get531WorkoutConfig(){
+  const fiveThreeOneSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("531 Exercises");
+  if(!fiveThreeOneSheet){
+    throw new Error("531 Sheet not found");
+  }
+  const liftName = fiveThreeOneSheet.getRange("L2").getValue();
+  const nextLiftWeek = getNextLiftWeek(fiveThreeOneSheet, liftName);
+
+  const oneRepMaxSheetKey = weekWeightConfig.OneRepMaxSheetKey[liftName];
+  const oneRepMax = fiveThreeOneSheet.getRange(oneRepMaxSheetKey).getValue();
+
+  return {
+    sheet: fiveThreeOneSheet,
+    liftName,
+    nextLiftWeek,
+    oneRepMax,
+  }
+}
+
+function createAccessoryWorkoutSets(){
+
+  const sheet = SpreadsheetApp.getActiveSpreadsheet();
+  const {nextLiftWeek} = get531WorkoutConfig();
+  const liftName = sheet.getRange("L2").getValue();
+  const numSets = Number(sheet.getRange("L3").getValue());
+
+  for(let i = 0; i<numSets; i++){
+    const workoutSet = [
+      nextLiftWeek - 1, // assuming main 531 lift already completed today
+      formatDateToMMDDYYYY(new Date()),
+      liftName,
+      0, // weight
+      1, // rest
+      8, // reps
+      0, // completed reps
+      false, // completed
+      "", // notes
+    ]
+
+    sheet.appendRow(workoutSet);
+  }
 }
 
 /**
@@ -179,33 +216,27 @@ function formatDateToMMDDYYYY(date: Date) {
   return `${month}/${day}/${year}`;
 }
 
-
-interface OnEditEvent {
-  authMode: string;
-  oldValue: string;
-  range: {
-    columnEnd: number;
-    columnStart: number;
-    rowEnd: number;
-    rowStart: number;
-  }
-  source: {
-  }
-  triggerUid: string;
-  user: {
-    email: string;
-    nickname: string;
-  }
-  value: string;
-}
-
 function onEdit(e: GoogleAppsScript.Events.SheetsOnEdit) {
 
-  // L8
-  if(e.range.getColumn() === 12 && e.range.getRow() === 8){
-    createNewWorkout();
-  }
+  console.log(`sheetName: ${e.source.getActiveSheet().getSheetName()}`);
+  console.log(`column: ${e.range.getColumn()}`);
+  console.log(`row: ${e.range.getRow()}`);
 
+  switch(e.source.getActiveSheet().getSheetName()){
+    case "531 Exercises":
+      // L8 - create new 531 workout if "start workout" checkbox was toggled
+      if(e.range.getColumn() === 12 && e.range.getRow() === 8){
+        createNew531WorkoutSets();
+      }
+      break;
+    case "Accessory Exercises": 
+      // L3 - create new accessory workout if "Create sets" checkbox was toggled
+      if(e.range.getColumn() === 12 && e.range.getRow() === 4){
+        createAccessoryWorkoutSets();
+      }
+      break;
+  }
+  
   syncCompletedReps(e);
 }
 
@@ -214,15 +245,18 @@ function syncCompletedReps(e: GoogleAppsScript.Events.SheetsOnEdit) {
 
   const expectedRepsIndex = getColumnIndex(sheet, "Expected Reps");
   const completedRepsIndex = getColumnIndex(sheet, "Completed Reps");
-  const completedColumn = getColumnIndex(sheet, "Completed")
-;
+  const completedIndex = getColumnIndex(sheet, "Completed");
   const expectedReps = sheet.getRange(e.range.getRow(), expectedRepsIndex).getValue();
   const completedReps = sheet.getRange(e.range.getRow(), completedRepsIndex).getValue();
+  const completed = Boolean(sheet.getRange(e.range.getRow(), completedIndex).getValue());
 
   if(e.range.getColumn() === completedRepsIndex && completedReps >= expectedReps){
-    sheet.getRange(e.range.getRow(), completedColumn).setValue(true);
+    sheet.getRange(e.range.getRow(), completedIndex).setValue(true);
   }
-  if(e.range.getColumn() === completedColumn && completedReps < expectedReps){
+  else if(e.range.getColumn() === completedIndex && completed && completedReps < expectedReps){
     sheet.getRange(e.range.getRow(), completedRepsIndex).setValue(expectedReps);
+  }
+  else if(e.range.getColumn() === completedRepsIndex && completed && completedReps < expectedReps){
+    sheet.getRange(e.range.getRow(), completedIndex).setValue(false);
   }
 }
