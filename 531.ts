@@ -17,11 +17,11 @@ export type WeekWeightConfig = {
 
 const weekWeightConfig: WeekWeightConfig = {
   OneRepMaxSheetKey: {
-    "Barbell Bench Press": "L3",
-    "Overhead Press": "M3",
-    "Bulgarian Split Squat": "N3",
-    "Deadlift": "O3",
-    "Squat": "P3",
+    "barbell_bench_press": "L3",
+    "overhead_press": "L4",
+    "bulgarian_split_squat": "L5",
+    "deadlift": "L6",
+    "squat": "L7",
   },
   // Week 1 (5s Week):
   // 65% TM × 5 reps
@@ -135,10 +135,11 @@ function get531WorkoutConfig(){
   if(!fiveThreeOneSheet){
     throw new Error("531 Sheet not found");
   }
-  const liftName = fiveThreeOneSheet.getRange("L2").getValue();
+  const liftName = fiveThreeOneSheet.getRange("L2").getValue().toLowerCase().replace(/ /g, "_");
   const nextLiftWeek = getNextLiftWeek(fiveThreeOneSheet, liftName);
 
   const oneRepMaxSheetKey = weekWeightConfig.OneRepMaxSheetKey[liftName];
+  console.log(`oneRepMaxSheetKey: ${oneRepMaxSheetKey}, liftName: ${liftName}`);
   const oneRepMax = fiveThreeOneSheet.getRange(oneRepMaxSheetKey).getValue();
 
   return {
@@ -218,10 +219,6 @@ function formatDateToMMDDYYYY(date: Date) {
 
 function onEdit(e: GoogleAppsScript.Events.SheetsOnEdit) {
 
-  console.log(`sheetName: ${e.source.getActiveSheet().getSheetName()}`);
-  console.log(`column: ${e.range.getColumn()}`);
-  console.log(`row: ${e.range.getRow()}`);
-
   switch(e.source.getActiveSheet().getSheetName()){
     case "531 Exercises":
       // L8 - create new 531 workout if "start workout" checkbox was toggled
@@ -234,10 +231,34 @@ function onEdit(e: GoogleAppsScript.Events.SheetsOnEdit) {
       if(e.range.getColumn() === 12 && e.range.getRow() === 4){
         createAccessoryWorkoutSets();
       }
+      // L9 - add new lift to dropdown menu
+      if(e.range.getColumn() === 12 && e.range.getRow() === 9){
+        addNewLiftToDropdownMenu(e);
+      }
       break;
   }
   
   syncCompletedReps(e);
+}
+
+function addNewLiftToDropdownMenu(e: GoogleAppsScript.Events.SheetsOnEdit) {
+  const sheet = e.source.getActiveSheet();
+  const liftDropDownMenuCell = sheet.getRange("L2");
+  const liftDropDownMenu = liftDropDownMenuCell.getDataValidation();
+  if(!liftDropDownMenu){
+    throw new Error("Lift dropdown menu not found");
+  }
+  const lifts = liftDropDownMenu.getCriteriaValues()[0];
+  const newLiftName = sheet.getRange("L8").getValue();
+  if(!lifts.includes(newLiftName)){
+    lifts.push(newLiftName);
+  }
+  const newLiftDropDownMenu = SpreadsheetApp.newDataValidation()
+    .requireValueInList(lifts, true)
+    .build();
+
+  liftDropDownMenuCell.setDataValidation(newLiftDropDownMenu);
+  
 }
 
 function syncCompletedReps(e: GoogleAppsScript.Events.SheetsOnEdit) {
