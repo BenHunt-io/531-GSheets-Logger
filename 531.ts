@@ -139,7 +139,6 @@ function get531WorkoutConfig(){
   const nextLiftWeek = getNextLiftWeek(fiveThreeOneSheet, liftName);
 
   const oneRepMaxSheetKey = weekWeightConfig.OneRepMaxSheetKey[liftName];
-  console.log(`oneRepMaxSheetKey: ${oneRepMaxSheetKey}, liftName: ${liftName}`);
   const oneRepMax = fiveThreeOneSheet.getRange(oneRepMaxSheetKey).getValue();
 
   return {
@@ -154,8 +153,10 @@ function createAccessoryWorkoutSets(){
 
   const sheet = SpreadsheetApp.getActiveSpreadsheet();
   const {nextLiftWeek} = get531WorkoutConfig();
-  const liftName = sheet.getRange("L2").getValue();
-  const numSets = Number(sheet.getRange("L3").getValue());
+  const liftName = sheet.getRange("M2").getValue();
+  const numSets = Number(sheet.getRange("M3").getValue());
+  
+  console.trace(`liftName: ${liftName}, numSets: ${numSets}, nextLiftWeek: ${nextLiftWeek}`);
 
   for(let i = 0; i<numSets; i++){
     const workoutSet = [
@@ -164,7 +165,8 @@ function createAccessoryWorkoutSets(){
       liftName,
       0, // weight
       1, // rest
-      8, // reps
+      0, // duration of exercise
+      8, // expected reps
       0, // completed reps
       false, // completed
       "", // notes
@@ -227,13 +229,9 @@ function onEdit(e: GoogleAppsScript.Events.SheetsOnEdit) {
       }
       break;
     case "Accessory Exercises": 
-      // L3 - create new accessory workout if "Create sets" checkbox was toggled
-      if(e.range.getColumn() === 12 && e.range.getRow() === 4){
+      // M4 - create new accessory workout if "Create sets" checkbox was toggled
+      if(e.range.getColumn() === 13 && e.range.getRow() === 4){
         createAccessoryWorkoutSets();
-      }
-      // L9 - add new lift to dropdown menu
-      if(e.range.getColumn() === 12 && e.range.getRow() === 9){
-        addNewLiftToDropdownMenu(e);
       }
       break;
   }
