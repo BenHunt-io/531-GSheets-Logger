@@ -271,6 +271,10 @@ function syncCompletedReps(e: GoogleAppsScript.Events.SheetsOnEdit) {
   const completedReps = sheet.getRange(e.range.getRow(), completedRepsIndex).getValue();
   const completed = Boolean(sheet.getRange(e.range.getRow(), completedIndex).getValue());
 
+  if(e.range.getRow() === 1){
+    return;
+  }
+
   if(e.range.getColumn() === completedRepsIndex && completedReps >= expectedReps){
     sheet.getRange(e.range.getRow(), completedIndex).setValue(true);
   }
