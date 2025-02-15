@@ -156,7 +156,7 @@ function createAccessoryWorkoutSets(){
   const liftName = sheet.getRange("M2").getValue();
   const numSets = Number(sheet.getRange("M3").getValue());
   
-  console.trace(`liftName: ${liftName}, numSets: ${numSets}, nextLiftWeek: ${nextLiftWeek}`);
+  console.log(`liftName: ${liftName}, numSets: ${numSets}, nextLiftWeek: ${nextLiftWeek}`);
 
   for(let i = 0; i<numSets; i++){
     const workoutSet = [
