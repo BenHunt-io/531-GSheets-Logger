@@ -17,11 +17,11 @@ export type WeekWeightConfig = {
 
 const weekWeightConfig: WeekWeightConfig = {
   OneRepMaxSheetKey: {
-    "barbell_bench_press": "L3",
-    "overhead_press": "L4",
-    "bulgarian_split_squat": "L5",
-    "deadlift": "L6",
-    "squat": "L7",
+    "barbell_bench_press": "M3",
+    "overhead_press": "M4",
+    "bulgarian_split_squat": "M5",
+    "deadlift": "M6",
+    "squat": "M7",
   },
   // Week 1 (5s Week):
   // 65% TM × 5 reps
@@ -110,7 +110,12 @@ function createNew531WorkoutSets(){
    
   const{ nextLiftWeek, oneRepMax, liftName, sheet } = get531WorkoutConfig();
 
+  console.log(`Creating new 531 workout sets for ${liftName} in week ${nextLiftWeek}`);
+
    for(let i = 0; i<3; i++){
+
+    console.log(`Looping through new 531 workout sets for ${liftName} in week ${nextLiftWeek}`);
+
     const percentOfOneRepMax = weekWeightConfig.week[nextLiftWeek].sets[i].weight;
 
     const workoutSet = [
@@ -135,7 +140,7 @@ function get531WorkoutConfig(){
   if(!fiveThreeOneSheet){
     throw new Error("531 Sheet not found");
   }
-  const liftName = fiveThreeOneSheet.getRange("L2").getValue().toLowerCase().replace(/ /g, "_");
+  const liftName = fiveThreeOneSheet.getRange("M2").getValue().toLowerCase().replace(/ /g, "_");
   const nextLiftWeek = getNextLiftWeek(fiveThreeOneSheet, liftName);
 
   const oneRepMaxSheetKey = weekWeightConfig.OneRepMaxSheetKey[liftName];
@@ -151,19 +156,26 @@ function get531WorkoutConfig(){
 
 function createAccessoryWorkoutSets(){
 
-  const sheet = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Accessory Exercises");
+  if(!sheet){
+    throw new Error("Accessory Exercises sheet not found");
+  }
   const {nextLiftWeek} = get531WorkoutConfig();
   const liftName = sheet.getRange("M2").getValue();
   const numSets = Number(sheet.getRange("M3").getValue());
+
+  const lastCompletedWeights = getLastCompletedWeightsForLift(sheet, liftName);
+
+  console.log(`lastCompletedWeights: ${JSON.stringify(lastCompletedWeights)}`);
   
   console.log(`liftName: ${liftName}, numSets: ${numSets}, nextLiftWeek: ${nextLiftWeek}`);
 
   for(let i = 0; i<numSets; i++){
     const workoutSet = [
-      nextLiftWeek - 1, // assuming main 531 lift already completed today
+      nextLiftWeek, 
       formatDateToMMDDYYYY(new Date()),
       liftName,
-      0, // weight
+      lastCompletedWeights[i], // weight
       1, // rest
       0, // duration of exercise
       8, // expected reps
@@ -181,25 +193,47 @@ function createAccessoryWorkoutSets(){
  * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet The sheet instance.
  */
 function getNextLiftWeek(sheet: GoogleAppsScript.Spreadsheet.Sheet, liftName: string) {
-  const exerciseNameIndex = getColumnIndex(sheet, "Exercise");
-  const exerciseNameValues = sheet.getRange(1, exerciseNameIndex, sheet.getLastRow()).getValues();
-
-  let indexOfExercise = -1;
-  for(let i = 0; i<exerciseNameValues.length; i++){
-    if(exerciseNameValues[i][0] === liftName){
-      indexOfExercise = i;
-    }
-  }
   
-  if(indexOfExercise === -1){
+  const rows = getRowIndexesOfLastCompletedLift(sheet, liftName);
+
+  console.log(`rows for lift ${liftName}: ${JSON.stringify(rows)}`);
+  
+  if(rows.length === 0){
     return 1;
   }
 
   const exerciseWeekIndex = getColumnIndex(sheet, "Week");
-  const exerciseWeekValue = sheet.getRange(indexOfExercise, exerciseWeekIndex, 1).getValue();
+  const exerciseWeekValue = sheet.getRange(rows[0], exerciseWeekIndex, 1).getValue();
   
   return (exerciseWeekValue % 4) + 1;
 
+}
+
+function getRowIndexesOfLastCompletedLift(sheet: GoogleAppsScript.Spreadsheet.Sheet, liftName: string): number[] {
+  const exerciseNameIndex = getColumnIndex(sheet, "Exercise");
+  const exerciseNameValues = sheet.getRange(1, exerciseNameIndex, sheet.getLastRow()).getValues();
+
+
+  let rows: number[] = [];
+  for(let i = exerciseNameValues.length - 1; i >= 0; i--){
+    if(exerciseNameValues[i][0] === liftName){
+      rows.push(i+1); // +1 because the row index is 1-based
+    }
+    if(rows.length > 0 && exerciseNameValues[i][0] !== liftName){
+      break;
+    }
+  }
+
+  if(rows.length === 0){
+    return [];
+  }
+
+  return rows.reverse(); // We added them in reverse order, so we need to reverse them
+}
+
+function getLastCompletedWeightsForLift(sheet: GoogleAppsScript.Spreadsheet.Sheet, liftName: string) {
+  const rows = getRowIndexesOfLastCompletedLift(sheet, liftName);
+  return rows.map(row => sheet.getRange(row, getColumnIndex(sheet, "Weight")).getValue());
 }
 
 function getColumnIndex(sheet: GoogleAppsScript.Spreadsheet.Sheet, columnName: string) {
@@ -223,8 +257,8 @@ function onEdit(e: GoogleAppsScript.Events.SheetsOnEdit) {
 
   switch(e.source.getActiveSheet().getSheetName()){
     case "531 Exercises":
-      // L8 - create new 531 workout if "start workout" checkbox was toggled
-      if(e.range.getColumn() === 12 && e.range.getRow() === 8){
+      // M8 - create new 531 workout if "start workout" checkbox was toggled
+      if(e.range.getColumn() === 13 && e.range.getRow() === 8){
         createNew531WorkoutSets();
       }
       break;
